@@ -663,8 +663,7 @@
 
     };
 
-    Slick.prototype.changeSlide = function(event, dontAnimate) {
-
+    Slick.prototype.changeSlide = function(event, dontAnimate, fromKeyboard) {
         var _ = this,
             $target = $(event.target),
             indexOffset, slideOffset, unevenOffset;
@@ -687,14 +686,14 @@
             case 'previous':
                 slideOffset = indexOffset === 0 ? _.options.slidesToScroll : _.options.slidesToShow - indexOffset;
                 if (_.slideCount > _.options.slidesToShow) {
-                    _.slideHandler(_.currentSlide - slideOffset, false, dontAnimate);
+                    _.slideHandler(_.currentSlide - slideOffset, false, dontAnimate, fromKeyboard);
                 }
                 break;
 
             case 'next':
                 slideOffset = indexOffset === 0 ? _.options.slidesToScroll : indexOffset;
                 if (_.slideCount > _.options.slidesToShow) {
-                    _.slideHandler(_.currentSlide + slideOffset, false, dontAnimate);
+                    _.slideHandler(_.currentSlide + slideOffset, false, dontAnimate, fromKeyboard);
                 }
                 break;
 
@@ -702,7 +701,7 @@
                 var index = event.data.index === 0 ? 0 :
                     event.data.index || $target.index() * _.options.slidesToScroll;
 
-                _.slideHandler(_.checkNavigable(index), false, dontAnimate);
+                _.slideHandler(_.checkNavigable(index), false, dontAnimate, fromKeyboard);
                 $target.children().trigger('focus');
                 break;
 
@@ -753,8 +752,8 @@
         }
 
         if (_.options.arrows === true && _.slideCount > _.options.slidesToShow) {
-            _.$prevArrow && _.$prevArrow.off('click.slick', _.changeSlide);
-            _.$nextArrow && _.$nextArrow.off('click.slick', _.changeSlide);
+            _.$prevArrow && _.$prevArrow.off('click.slick', _.changeSlide) && _.$prevArrow.off('keydown.slick', _.changeSlide);
+            _.$nextArrow && _.$nextArrow.off('click.slick', _.changeSlide) && _.$nextArrow.off('keydown.slick', _.changeSlide);
         }
 
         _.$list.off('touchstart.slick mousedown.slick', _.swipeHandler);
@@ -1209,6 +1208,22 @@
             _.$nextArrow.on('click.slick', {
                 message: 'next'
             }, _.changeSlide);
+            _.$prevArrow.on('keydown.slick', function(event){
+                if(event.keyCode === 32) {
+                    event.data = {
+                        message: 'previous'
+                    }
+                    _.changeSlide(event, null, true)
+                }
+            });
+            _.$nextArrow.on('keydown.slick', function(event){
+                if(event.keyCode === 32) {
+                    event.data = {
+                        message: 'next'
+                    }
+                    _.changeSlide(event, null, true)
+                }
+            });
         }
 
     };
@@ -1448,8 +1463,7 @@
 
     };
 
-    Slick.prototype.postSlide = function(index) {
-
+    Slick.prototype.postSlide = function(index, fromKeyboard) {
         var _ = this;
 
         _.$slider.trigger('afterChange', [_, index]);
@@ -1464,7 +1478,7 @@
             _.autoPlay();
         }
         if (_.options.accessibility === true) {
-            _.initADA();
+            _.initADA(fromKeyboard);
         }
 
     };
@@ -1512,22 +1526,8 @@
 
     Slick.prototype.refresh = function( initializing ) {
 
-        var _ = this, currentSlide, firstVisible;
-
-        firstVisible = _.slideCount - _.options.slidesToShow;
-
-        // check that the new breakpoint can actually accept the
-        // "current slide" as the current slide, otherwise we need
-        // to set it to the closest possible value.
-        if ( !_.options.infinite ) {
-            if ( _.slideCount <= _.options.slidesToShow ) {
-                _.currentSlide = 0;
-            } else if ( _.currentSlide > firstVisible ) {
-                _.currentSlide = firstVisible;
-            }
-        }
-
-         currentSlide = _.currentSlide;
+        var _ = this,
+            currentSlide = _.currentSlide;
 
         _.destroy(true);
 
@@ -2097,8 +2097,7 @@
 
     };
 
-    Slick.prototype.slideHandler = function(index, sync, dontAnimate) {
-
+    Slick.prototype.slideHandler = function(index, sync, dontAnimate, fromKeyboard) {
         var targetSlide, animSlide, oldSlide, slideLeft, targetLeft = null,
             _ = this;
 
@@ -2131,10 +2130,10 @@
                 targetSlide = _.currentSlide;
                 if (dontAnimate !== true) {
                     _.animateSlide(slideLeft, function() {
-                        _.postSlide(targetSlide);
+                        _.postSlide(targetSlide, fromKeyboard);
                     });
                 } else {
-                    _.postSlide(targetSlide);
+                    _.postSlide(targetSlide, fromKeyboard);
                 }
             }
             return;
@@ -2143,10 +2142,10 @@
                 targetSlide = _.currentSlide;
                 if (dontAnimate !== true) {
                     _.animateSlide(slideLeft, function() {
-                        _.postSlide(targetSlide);
+                        _.postSlide(targetSlide, fromKeyboard);
                     });
                 } else {
-                    _.postSlide(targetSlide);
+                    _.postSlide(targetSlide, fromKeyboard);
                 }
             }
             return;
@@ -2190,11 +2189,11 @@
                 _.fadeSlideOut(oldSlide);
 
                 _.fadeSlide(animSlide, function() {
-                    _.postSlide(animSlide);
+                    _.postSlide(animSlide, fromKeyboard);
                 });
 
             } else {
-                _.postSlide(animSlide);
+                _.postSlide(animSlide, fromKeyboard);
             }
             _.animateHeight();
             return;
@@ -2202,10 +2201,10 @@
 
         if (dontAnimate !== true) {
             _.animateSlide(targetLeft, function() {
-                _.postSlide(animSlide);
+                _.postSlide(animSlide, fromKeyboard);
             });
         } else {
-            _.postSlide(animSlide);
+            _.postSlide(animSlide, fromKeyboard);
         }
 
     };
@@ -2566,7 +2565,7 @@
         }
 
     };
-    Slick.prototype.initADA = function() {
+    Slick.prototype.initADA = function(fromKeyboard) {
         var _ = this;
         _.$slides.add(_.$slideTrack.find('.slick-cloned')).attr({
             'aria-hidden': 'true',
@@ -2597,11 +2596,11 @@
                 .find('button').attr('role', 'button').end()
                 .closest('div').attr('role', 'toolbar');
         }
-        _.activateADA();
+        _.activateADA(fromKeyboard);
 
     };
 
-    Slick.prototype.activateADA = function() {
+    Slick.prototype.activateADA = function(fromKeyboard) {
         var _ = this,
         _isSlideOnFocus =_.$slider.find('*').is(':focus');
         // _isSlideOnFocus = _.$slides.is(':focus') || _.$slides.find('*').is(':focus');
@@ -2613,7 +2612,7 @@
             'tabindex': '0'
         });
 
-        (_isSlideOnFocus) &&  _.$slideTrack.find('.slick-active').focus();
+        (_isSlideOnFocus) && fromKeyboard && $(_.$slideTrack.find('.slick-active')[0]).focus();
 
     };
 
